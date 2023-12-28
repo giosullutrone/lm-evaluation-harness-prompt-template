@@ -65,6 +65,7 @@ class TaskConfig(dict):
     doc_to_text: Union[Callable, str] = None
     doc_to_target: Union[Callable, str] = None
     doc_to_choice: Union[Callable, str, dict, list] = None
+    text_to_prompt: Callable = None
     process_results: Union[Callable, str] = None
     use_prompt: str = None
     description: str = ""
@@ -359,6 +360,14 @@ class Task(abc.ABC):
                 ctx=fewshot_ctx,
                 metadata=(self.config["task"], doc_id, self.config.repeats),
             )
+
+            if self.config.text_to_prompt is not None:
+                for ins in inst:
+                    # Explanation:
+                    # If you check models.huggingface.HFLM.loglikelihood you will see that instance.args[0] and instance.args[1]
+                    # are tokenized and are respectively context and continuation. Here we therefore change the context by
+                    # applying the text_to_prompt function if provided (func that takes text and applies the template for the model).
+                    ins.arguments = (self.config.text_to_prompt(ins.arguments[0]), *ins.arguments[1:])
 
             if not isinstance(inst, list):
                 inst = [inst]
