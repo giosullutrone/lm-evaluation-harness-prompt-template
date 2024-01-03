@@ -9,6 +9,7 @@ test_split: test
 doc_to_text: "Question: {{Problem}}\nAnswer:"
 doc_to_target: "{{['a', 'b', 'c', 'd', 'e'].index(correct)}}"
 doc_to_choice: !function utils.doc_to_choice
+text_to_prompt: !function utils.text_to_prompt
 should_decontaminate: true
 doc_to_decontamination_query: "Question: {{Problem}}\nAnswer:"
 metric_list:
