@@ -22,6 +22,3 @@ def doc_to_text(doc) -> str:
 def doc_to_target(doc) -> int:
     choices = ["a", "b", "c", "d"]
     return choices.index(doc["label"].strip())
-
-def text_to_prompt(text: str) -> str:
-    return f'[INST] <<SYS>>\n \n<</SYS>>\n{text} [/INST] '

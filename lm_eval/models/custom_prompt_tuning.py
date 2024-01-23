@@ -1,9 +1,9 @@
 import os
-from typing import Optional, Union
+from typing import Optional, Union, Literal
 import torch
 from lm_eval.models.huggingface import HFLM
 from lm_eval.api.registry import register_model
-
+import transformers
 
 from peft.peft_model import PeftModelForCausalLM
 from peft.utils import _get_batch_size, PeftType
@@ -13,11 +13,12 @@ from typing import Union, List
 from functools import partial
 from transformers import PreTrainedTokenizer
 import tqdm
-
+from lm_eval.utils import (
+    eval_logger
+)
 
 def get_template_token_position(x: torch.Tensor, token_ids: torch.Tensor) -> Union[int, None]:
     token_ids_start_idx = None
-    print(x.shape, token_ids.shape)
     for idx in torch.where(x == token_ids[0])[0]:
         # Here we are just making sure that the token IDs match
         if (idx + len(token_ids) < len(x)) and (all(token_ids == x[idx : idx + len(token_ids)])):
@@ -34,7 +35,7 @@ def fit_template_tokens(sample, system_token_ids):
         if token_ids_start_idx is not None: break
         idx += 1
     else: raise Exception("Could not find fitting template tokens")
-    print("System template in tokens: ", idx, system_token_ids[idx:])
+    eval_logger.info(f"System template in tokens: {idx}")
     return system_token_ids[idx:]
 
 
@@ -119,36 +120,58 @@ class ProxySystemPromptTuning:
 class CustomPromptTuning(HFLM):
     def __init__(
         self,
-        pretrained: Optional[str] = "gpt2",
+        pretrained: Optional[Union[str, transformers.PreTrainedModel]] = "gpt2",
+        backend: Optional[
+            Literal["default", "causal", "seq2seq"]
+        ] = "default",  # override whether the model should be treated as decoder-only (causal) or encoder-decoder (seq2seq)
         revision: Optional[str] = "main",
         subfolder: Optional[str] = None,
-        tokenizer: Optional[str] = None,
+        tokenizer: Optional[
+            Union[
+                str,
+                transformers.PreTrainedTokenizer,
+                transformers.PreTrainedTokenizerFast,
+            ]
+        ] = None,
         truncation: Optional[bool] = False,
         max_length: Optional[int] = None,
         device: Optional[str] = "cuda",
         dtype: Optional[Union[str, torch.dtype]] = "auto",
         batch_size: Optional[Union[int, str]] = 1,
         max_batch_size: Optional[int] = 64,
-        low_cpu_mem_usage: Optional[bool] = True,
         trust_remote_code: Optional[bool] = False,
         use_fast_tokenizer: Optional[bool] = True,
-        cache_dir: Optional[Union[str, os.PathLike]] = None,
         # arguments used for splitting a model across GPUs naively.
         # only used if `parallelize=True`.
         parallelize: Optional[bool] = False,
         device_map_option: Optional[str] = "auto",
         max_memory_per_gpu: Optional[Union[int, str]] = None,
         max_cpu_memory: Optional[Union[int, str]] = None,
-        offload_folder: Optional[str] = "./offload",
+        offload_folder: Optional[Union[str, os.PathLike]] = "./offload",
         # PEFT and quantization options
         peft: Optional[str] = None,
-        load_in_8bit: Optional[bool] = False,
-        load_in_4bit: Optional[bool] = False,
-        bnb_4bit_quant_type: Optional[str] = None,
-        bnb_4bit_compute_dtype: Optional[Union[str, torch.dtype]] = None,
-        gptq: Optional[Union[bool, str]] = False,
-        gptq_use_triton: Optional[bool] = False,
-        system_template: str=" <<SYS>>\n "
+        autogptq: Optional[Union[bool, str]] = False,
+        system_template: str=" <<SYS>>\n ",
+        **kwargs
     ) -> None:
-        super().__init__(pretrained, revision, subfolder, tokenizer, truncation, max_length, device, dtype, batch_size, max_batch_size, low_cpu_mem_usage, trust_remote_code, use_fast_tokenizer, cache_dir, parallelize, device_map_option, max_memory_per_gpu, max_cpu_memory, offload_folder, peft, load_in_8bit, load_in_4bit, bnb_4bit_quant_type, bnb_4bit_compute_dtype, gptq, gptq_use_triton)
+        super().__init__(pretrained, 
+                         backend, 
+                         revision, 
+                         subfolder, 
+                         tokenizer, 
+                         truncation, 
+                         max_length, 
+                         device, dtype, 
+                         batch_size, 
+                         max_batch_size, 
+                         trust_remote_code, 
+                         use_fast_tokenizer, 
+                         parallelize, 
+                         device_map_option, 
+                         max_memory_per_gpu, 
+                         max_cpu_memory, 
+                         offload_folder, 
+                         peft, 
+                         autogptq, 
+                         **kwargs)
         ProxySystemPromptTuning.add_proxy(self._model, system_template, self.tokenizer)

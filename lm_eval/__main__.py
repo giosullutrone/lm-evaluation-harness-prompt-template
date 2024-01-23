@@ -136,6 +136,14 @@ def parse_eval_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--text_to_prompt",
+        default=None,
+        help=(
+            'Text to use as formatting for the prompt given to the model. use {text} to specify where to place the original input.'
+            'e.g. "[INST] \n{text} [/INST]" would add [INST] and [/INST] to the input text.'
+        ),
+    )
+    parser.add_argument(
         "--verbosity",
         "-v",
         type=str.upper,
@@ -243,6 +251,7 @@ def cli_evaluate(args: Union[argparse.Namespace, None] = None) -> None:
         write_out=args.write_out,
         log_samples=args.log_samples,
         gen_kwargs=args.gen_kwargs,
+        text_to_prompt=args.text_to_prompt
     )
 
     if results is not None:

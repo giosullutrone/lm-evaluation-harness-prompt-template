@@ -38,6 +38,7 @@ def simple_evaluate(
     write_out: bool = False,
     log_samples: bool = True,
     gen_kwargs: str = None,
+    text_to_prompt: str = None
 ):
     """Instantiate and evaluate a model on a list of tasks.
 
@@ -71,6 +72,8 @@ def simple_evaluate(
     :param gen_kwargs: str
         String arguments for model generation
         Ignored for all tasks with loglikelihood output_type
+    :param text_to_prompt: str
+        Text to use as formatting for the prompt given to the model. e.g. "[INST] \n{text} [/INST]" would add [INST] and [/INST] to the input text.
     :return
         Dictionary of results
     """
@@ -155,6 +158,7 @@ def simple_evaluate(
         decontamination_ngrams_path=decontamination_ngrams_path,
         write_out=write_out,
         log_samples=log_samples,
+        text_to_prompt=text_to_prompt
     )
 
     if lm.rank == 0:
@@ -192,6 +196,7 @@ def evaluate(
     decontamination_ngrams_path=None,
     write_out: bool = False,
     log_samples: bool = True,
+    text_to_prompt: str = None
 ):
     """Instantiate and evaluate a model on a list of tasks.
 
@@ -207,6 +212,8 @@ def evaluate(
         If True, write out an example document and model input for checking task integrity
     :param log_samples: bool
         If True, write out all model outputs and documents for per-sample measurement and post-hoc analysis
+    :param text_to_prompt: str
+        Text to use as formatting for the prompt given to the model. e.g. "[INST] \n{text} [/INST]" would add [INST] and [/INST] to the input text.
     :return
         Dictionary of results
     """
@@ -277,7 +284,7 @@ def evaluate(
                 raise RuntimeError("Task has neither test_docs nor validation_docs")
             limit = int(len(task_docs) * limit) if limit < 1.0 else int(limit)
 
-        task.build_all_requests(limit=limit, rank=lm.rank, world_size=lm.world_size)
+        task.build_all_requests(limit=limit, rank=lm.rank, world_size=lm.world_size, text_to_prompt=text_to_prompt)
 
         eval_logger.debug(
             f"Task: {task_name}; number of requests on this rank: {len(task.instances)}"

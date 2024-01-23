@@ -65,7 +65,6 @@ class TaskConfig(dict):
     doc_to_text: Union[Callable, str] = None
     doc_to_target: Union[Callable, str] = None
     doc_to_choice: Union[Callable, str, dict, list] = None
-    text_to_prompt: Callable = None
     process_results: Union[Callable, str] = None
     use_prompt: str = None
     description: str = ""
@@ -333,7 +332,7 @@ class Task(abc.ABC):
     def doc_to_target(self, doc):
         pass
 
-    def build_all_requests(self, limit=None, rank=None, world_size=None) -> None:
+    def build_all_requests(self, limit=None, rank=None, world_size=None, text_to_prompt: str=None) -> None:
         """Build a set of Instances for a task, and store them in task.instances"""
         if self.has_test_docs():
             docs = self.test_docs()
@@ -361,19 +360,20 @@ class Task(abc.ABC):
                 metadata=(self.config["task"], doc_id, self.config.repeats),
             )
 
-            if self.config.text_to_prompt is not None:
+            if text_to_prompt is not None:
                 for ins in inst:
                     # Explanation:
                     # If you check models.huggingface.HFLM.loglikelihood you will see that instance.args[0] and instance.args[1]
                     # are tokenized and are respectively context and continuation. Here we therefore change the context by
-                    # applying the text_to_prompt function if provided (func that takes text and applies the template for the model).
-                    ins.arguments = (self.config.text_to_prompt(ins.arguments[0]), *ins.arguments[1:])
+                    # applying the text_to_prompt if provided (string with the template for the model with '{text}' to specify where to place the original text).
+                    ins.arguments = (text_to_prompt.format(text=ins.arguments[0]), *ins.arguments[1:])
 
             if not isinstance(inst, list):
                 inst = [inst]
 
             instances.extend(inst)
 
+        eval_logger.info(f"First prompt given: {instances[0].arguments[0]}")
         self._instances = instances
         assert len(self._instances) != 0, "task.build_requests() did not find any docs!"
 
